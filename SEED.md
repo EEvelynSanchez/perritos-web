@@ -27,4 +27,9 @@ Notes
 - The seed creates a test user: `test@test.com` with password `1234` (stored hashed).
 - The `.env` file is ignored by Git; do not commit secret credentials.
 
+Security note: NextAuth requires a `NEXTAUTH_SECRET` for signing JWTs. Add a secure random value to your `.env`:
+
+  NEXTAUTH_SECRET="a-very-secret-value"
+
+You can generate one with `openssl rand -hex 32` or a similar method.
 If you want, I can add a `npm run seed:ci` script for CI-friendly seeding using a SQLite DB.

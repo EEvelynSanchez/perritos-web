@@ -1,12 +1,12 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import * as Prisma from "@prisma/client"
+import { PrismaClient } from "@prisma/client"
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
 
-// Prisma client: use a safe construction and ignore a potential typing mismatch
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-const prisma = new (Prisma as any).PrismaClient()
+const prisma = new PrismaClient()
 
 const handler = NextAuth({
+  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -15,62 +15,32 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // Basic validation
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email and password are required")
         }
 
-        // Look up the user in the database
         const user = await prisma.user.findUnique({ where: { email: credentials.email } })
-        if (!user) {
-          // Throwing an error will surface it to the client as the `error` property
-          throw new Error("No account found for this email")
-        }
+        if (!user) throw new Error("No account found for this email")
 
-        // Load bcrypt at runtime so the package can be added when ready
-        let bcrypt: { compare: (a: string, b: string) => Promise<boolean> } | null = null
-        try {
-          // @ts-expect-error - optional dependency may not be installed during development
-          const imported = await import("bcrypt")
-          /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-          bcrypt = (imported as any)?.default ?? imported
-        } catch {
-          throw new Error("Please install 'bcrypt' (npm i bcrypt) to enable password verification")
-        }
+        const { compare } = await import("bcrypt")
+        const isValid = await compare(credentials.password, user.password)
+        if (!isValid) throw new Error("Incorrect password")
 
-        if (!bcrypt) {
-          throw new Error("Please install 'bcrypt' (npm i bcrypt) to enable password verification")
-        }
-
-        // Compare hashed password
-        const isValid = await bcrypt.compare(credentials.password, user.password)
-        if (!isValid) {
-          throw new Error("Incorrect password")
-        }
-
-        // Successful sign-in: return the user object (id must be string)
         return { id: String(user.id), name: user.name ?? undefined, email: user.email }
       }
     })
   ],
   pages: {
-    signIn: "/login"
-  },
-  session: {
-    strategy: "jwt"
+    signIn: "/login",
+    signOut: "/",
+    error: "/login",
+    verifyRequest: "/login",
+    newUser: "/signup"
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        token.id = (user as any).id
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        (session.user as any).id = (token as any).id
+    async session({ session, user }) {
+      if (session.user && user) {
+        (session.user as any).id = String((user as any).id)
       }
       return session
     }

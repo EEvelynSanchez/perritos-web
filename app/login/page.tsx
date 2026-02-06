@@ -47,6 +47,20 @@ export default function LoginPage() {
     }
   }
 
+  // Announce reason for redirect if the login page was reached via middleware
+  const [announce, setAnnounce] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const cb = params.get('callbackUrl')
+    if (cb) {
+      setAnnounce(`You must sign in to view ${cb}. After signing in you will be returned to that page.`)
+      // Move focus to heading for screen reader users
+      const heading = document.getElementById('login-heading')
+      heading?.focus()
+    }
+  }, [])
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <form
@@ -55,9 +69,13 @@ export default function LoginPage() {
         aria-labelledby="login-heading"
         noValidate
       >
-        <h1 id="login-heading" className="text-2xl font-bold mb-6 text-center">
+        <h1 id="login-heading" tabIndex={-1} className="text-2xl font-bold mb-6 text-center">
           Login
         </h1>
+
+        {announce && (
+          <div role="status" aria-live="polite" className="sr-only">{announce}</div>
+        )}
 
         {error && (
           <div

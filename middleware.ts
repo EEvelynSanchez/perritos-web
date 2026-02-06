@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 
+import { protectedRoutes } from "./lib/protectedRoutes"
+
 // Paths that should remain public
 const PUBLIC_PATHS = ["/", "/login", "/signup", "/api", "/_next", "/favicon.ico", "/robots.txt"]
 
@@ -13,7 +15,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // Protect only routes that match the matcher below (dogs, create, profile, account)
   // Check for a valid NextAuth JWT token
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
   if (!token) {
@@ -28,10 +29,5 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   // Only run middleware on protected routes to minimize overhead
-  matcher: [
-    "/dogs/:path*",
-    "/create/:path*",
-    "/profile/:path*",
-    "/account/:path*"
-  ]
+  matcher: protectedRoutes
 }
